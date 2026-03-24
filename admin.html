@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>관리자</title>
+
+<style>
+body {
+  font-family: Arial;
+  padding: 10px;
+  font-size: 13px; /* 🔥 전체 글씨 작게 */
+}
+
+/* 표 구조 */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* 🔥 핵심: 셀 작게 */
+th, td {
+  border: 1px solid #ddd;
+  padding: 4px 6px; /* 🔥 여백 줄이기 */
+  text-align: center;
+
+  width: 80px;     /* 🔥 너비 줄임 */
+  height: 32px;    /* 🔥 높이 줄임 */
+
+  font-size: 12px; /* 🔥 글씨 작게 */
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 헤더 */
+th {
+  background: #333;
+  color: white;
+  font-size: 12px;
+}
+
+/* 줄 배경 */
+tr:nth-child(even) {
+  background: #f7f7f7;
+}
+
+/* 🔥 D/O 강조 (과하지 않게) */
+.do {
+  background-color: #ffe5e5;
+  font-weight: bold;
+}
+
+/* 버튼 */
+button {
+  margin: 3px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+</style></head>
+
+<body>
+
+<h1>관리자 스케줄</h1>
+
+<div id="buttons"></div>
+
+<button onclick="resetWeek()">🗑️ 이번 주 초기화</button>
+
+<table>
+<thead>
+<tr id="headerRow"></tr>
+</thead>
+<tbody id="adminTable"></tbody>
+</table>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, onSnapshot, deleteDoc, doc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA0v6EFmB9eXPJDys7V6esaE04BE4kneNk",
+  authDomain: "schedule-app-29adb.firebaseapp.com",
+  projectId: "schedule-app-29adb",
+  storageBucket: "schedule-app-29adb.firebasestorage.app",
+  messagingSenderId: "361799855411",
+  appId: "1:361799855411:web:9e79d6bc36aabdf926e246"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const days = ["all","sun","mon","tue","wed","thu","fri","sat"];
+const names = ["전체","일","월","화","수","목","금","토"];
+
+let current = "all";
+let cached = [];
+
+// 버튼 생성
+const btnBox = document.getElementById("buttons");
+days.forEach((d,i)=>{
+  btnBox.innerHTML += `<button onclick="setFilter('${d}')">${names[i]}</button>`;
+});
+
+window.setFilter = function(day){
+  current = day;
+  render();
+};
+
+// 🔥 실시간 데이터
+onSnapshot(collection(db,"schedules"), snap=>{
+  cached = [];
+  snap.forEach(doc=> cached.push(doc.data()));
+  render();
+});
+
+// 🔥 렌더링
+function render(){
+
+  const body = document.getElementById("adminTable");
+  const header = document.getElementById("headerRow");
+
+  body.innerHTML = "";
+  header.innerHTML = "<th>이름</th>";
+
+  if (current==="all"){
+    names.slice(1).forEach(n=> header.innerHTML += `<th>${n}</th>`);
+  } else {
+    header.innerHTML += `<th>${names[days.indexOf(current)]}</th>`;
+  }
+
+  cached.forEach(user=>{
+    const tr = document.createElement("tr");
+
+    if (current==="all"){
+      tr.innerHTML = `<td>${user.name}</td>`;
+
+      days.slice(1).forEach(d=>{
+        const val = user.schedule[d] || "";
+
+        const isDO = val === "D/O";
+
+        tr.innerHTML += `
+          <td class="${isDO ? "do" : ""}" 
+              onclick="showReason('${user.name}','${d}')">
+            ${val}
+          </td>
+        `;
+      });
+
+    } else {
+
+      const val = user.schedule[current] || "";
+      const isDO = val === "D/O";
+
+      tr.innerHTML = `
+        <td>${user.name}</td>
+        <td class="${isDO ? "do" : ""}" 
+            onclick="showReason('${user.name}','${current}')">
+          ${val}
+        </td>
+      `;
+    }
+
+    body.appendChild(tr);
+  });
+}
+
+// 🔥 사유 보기
+window.showReason = function(name, day){
+
+  const user = cached.find(u=>u.name===name);
+  const reason = user?.reason?.[day];
+
+  if (reason){
+    alert("사유: " + reason);
+  }
+};
+
+// 🔥 전체 삭제 (주간 초기화)
+window.resetWeek = async function(){
+
+  if (!confirm("진짜 전체 삭제할까?")) return;
+
+  const snap = await getDocs(collection(db,"schedules"));
+
+  for (let d of snap.docs){
+    await deleteDoc(doc(db,"schedules", d.id));
+  }
+
+  alert("초기화 완료!");
+};
+
+</script>
+
+</body>
+</html>
