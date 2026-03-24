@@ -58,19 +58,19 @@ const names = ["일","월","화","수","목","금","토"];
 
 const container = document.getElementById("days");
 
-// UI 생성
+// UI 생성 (🔥 순서 변경)
 days.forEach((d,i)=>{
   container.innerHTML += `
     <div class="day">
       <b>${names[i]}</b>
 
-      <input id="${d}Time" placeholder="근무 가능 시간 입력">
-
-      <select id="${d}Type" onchange="toggleReason('${d}')">
+      <select id="${d}Type" onchange="handleChange('${d}')">
         <option value="">선택</option>
-        <option value="work">근무 가능</option>
+        <option value="work">출근</option>
         <option value="D/O">D/O</option>
       </select>
+
+      <input id="${d}Time" placeholder="근무 시간 입력">
 
       <span id="${d}ReasonBox" class="reason">
         <input id="${d}Reason" placeholder="주말 D/O 사유 (필수)">
@@ -79,14 +79,24 @@ days.forEach((d,i)=>{
   `;
 });
 
-// 주말 사유 표시
-window.toggleReason = function(day){
-  const type = document.getElementById(day+"Type").value;
-  const box = document.getElementById(day+"ReasonBox");
+// 🔥 D/O 선택 시 입력 제어
+window.handleChange = function(day){
 
-  box.style.display = (day==="sun"||day==="sat") && type==="D/O"
-    ? "inline"
-    : "none";
+  const type = document.getElementById(day+"Type").value;
+  const timeInput = document.getElementById(day+"Time");
+  const reasonBox = document.getElementById(day+"ReasonBox");
+
+  if (type === "D/O") {
+    timeInput.value = "";
+    timeInput.disabled = true;
+
+    if (day==="sun" || day==="sat"){
+      reasonBox.style.display = "inline";
+    }
+  } else {
+    timeInput.disabled = false;
+    reasonBox.style.display = "none";
+  }
 };
 
 // 스케줄 생성
@@ -105,7 +115,7 @@ function makeSchedule(day){
     return "D/O";
   }
 
-  if (!time) throw `${day} 시간 입력 안함`;
+  if (!time) throw `${day} 근무시간 입력 안함`;
 
   return time;
 }
@@ -149,4 +159,3 @@ window.submitSchedule = async function(){
 
 </body>
 </html>
-</script>
