@@ -2,22 +2,58 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>스케줄 신청</title>
 
 <style>
 body {
   font-family: Arial;
-  padding: 20px;
+  padding: 15px;
+  font-size: 18px;
 }
 
+/* 제목 */
+h1 {
+  font-size: 24px;
+  margin-bottom: 15px;
+}
+
+/* 입력 */
 input, select {
-  margin: 5px;
-  padding: 5px;
-  font-size: 13px;
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
 }
 
+/* 하루 카드 느낌 */
 .day {
-  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #f9f9f9;
+}
+
+/* 요일 */
+.day b {
+  font-size: 20px;
+}
+
+/* 버튼 */
+button {
+  width: 100%;
+  padding: 15px;
+  font-size: 18px;
+  background: black;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  margin-top: 15px;
 }
 
 .reason {
@@ -28,17 +64,16 @@ input, select {
 
 <body>
 
-<h1>직원 스케줄 신청</h1>
+<h1>스케줄 신청</h1>
 
-<input type="text" id="name" placeholder="이름"><br><br>
+<input type="text" id="name" placeholder="이름 입력">
 
 <div id="days"></div>
 
-<button onclick="submitSchedule()">제출</button>
+<button onclick="submitSchedule()">제출하기</button>
 
 <script type="module">
 
-// Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, setDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -54,9 +89,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// 요일 설정
 const days = ["sun","mon","tue","wed","thu","fri","sat"];
-const names = ["일","월","화","수","목","금","토"];
+const names = ["일요일","월요일","화요일","수요일","목요일","금요일","토요일"];
 
 const container = document.getElementById("days");
 
@@ -66,31 +100,39 @@ days.forEach((d,i)=>{
     <div class="day">
       <b>${names[i]}</b>
 
-      <select id="${d}Type" onchange="toggleReason('${d}')">
-        <option value="">선택</option>
+      <select id="${d}Type" onchange="handleChange('${d}')">
+        <option value="">출근 / D.O 선택</option>
+        <option value="work">출근</option>
         <option value="D/O">D/O</option>
-        <option value="open">오픈</option>
-        <option value="close">마감</option>
       </select>
 
-      <input id="${d}Time" placeholder="시간 (예: 15, 17:30)">
-      <input id="${d}Note" placeholder="특이사항">
+      <input id="${d}Time" placeholder="근무 가능 시간 입력">
 
       <span id="${d}ReasonBox" class="reason">
-        <input id="${d}Reason" placeholder="주말 D/O 사유 (필수)">
+        <input id="${d}Reason" placeholder="주말 D/O 사유 입력">
       </span>
     </div>
   `;
 });
 
-// 주말 사유 표시
-window.toggleReason = function(day){
-  const type = document.getElementById(day+"Type").value;
-  const box = document.getElementById(day+"ReasonBox");
+// 선택 시 동작
+window.handleChange = function(day){
 
-  box.style.display = (day==="sun"||day==="sat") && type==="D/O"
-    ? "inline"
-    : "none";
+  const type = document.getElementById(day+"Type").value;
+  const timeInput = document.getElementById(day+"Time");
+  const reasonBox = document.getElementById(day+"ReasonBox");
+
+  if (type === "D/O") {
+    timeInput.value = "";
+    timeInput.disabled = true;
+
+    if (day==="sun" || day==="sat"){
+      reasonBox.style.display = "block";
+    }
+  } else {
+    timeInput.disabled = false;
+    reasonBox.style.display = "none";
+  }
 };
 
 // 스케줄 생성
@@ -100,22 +142,18 @@ function makeSchedule(day){
   const time = document.getElementById(day+"Time").value;
   const reason = document.getElementById(day+"Reason")?.value;
 
-  if (!type) throw `${day} 요일 선택 안함`;
+  if (!type) throw `${day} 선택 안함`;
 
   if (type==="D/O"){
-
     if ((day==="sun"||day==="sat") && !reason){
-      throw "주말 D/O는 사유 필수!";
+      throw "주말 D/O 사유 입력!";
     }
-
     return "D/O";
   }
 
   if (!time) throw `${day} 시간 입력 안함`;
 
-  return type==="open"
-    ? `${time} 퇴근(오픈)`
-    : `${time} 출근(마감)`;
+  return time;
 }
 
 // 제출
@@ -132,22 +170,17 @@ window.submitSchedule = async function(){
 
     const schedule = {};
     const reason = {};
-    const note = {};
 
     days.forEach(d=>{
       schedule[d] = makeSchedule(d);
       reason[d] = document.getElementById(d+"Reason")?.value || "";
-      note[d] = document.getElementById(d+"Note")?.value || "";
     });
 
-    const data = {
+    await setDoc(doc(db,"schedules",name), {
       name,
       schedule,
-      reason,
-      note
-    };
-
-    await setDoc(doc(db,"schedules",name), data);
+      reason
+    });
 
     alert("제출 완료!");
 
